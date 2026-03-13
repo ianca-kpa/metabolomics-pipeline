@@ -80,7 +80,9 @@ compute_ttest_stats_general <- function(mat_log2, mat_prelog, meta_sub, feat_inf
     var_equal = as.logical(var_equal)
   ) %>%
     left_join(
-      feat_info %>% select(featureID, any_of(c("display_name","mz","RT","Name","Name_canon","Metabolika_pathways","Formula"))),
+      feat_info %>% select(featureID, any_of(c("display_name","mz","RT",
+      # "Name","Name_canon",
+      "Metabolika_pathways","Formula"))),
       by = "featureID"
     )
 }
@@ -433,11 +435,11 @@ export_stats_excel_by_model <- function(stats_5sets_by_model, paths, alpha_sig, 
       visible_cols <- setdiff(seq_len(ncol(df_clean)), helper_cols)
       
       if (length(visible_cols) > 0) {
-        openxlsx::setColWidths(wb, nm, cols = visible_cols, widths = "auto")
+        openxlsx::setColWidths(wb, nm, cols = visible_cols, widths = 18)
       }
       
       if (length(helper_cols) > 0) {
-        openxlsx::setColWidths(wb, nm, cols = helper_cols, widths = 0)
+        openxlsx::setColWidths(wb, nm, cols = helper_cols, widths = 5)
       }
     }
     
