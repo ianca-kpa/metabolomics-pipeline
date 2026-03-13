@@ -90,9 +90,9 @@ config/settings.R
 Then edit the file and set:
 
 ```
-cd_file_path \<- "path/to/compound_discoverer_export.xlsx"\
-metadata_path \<- "path/to/metadata.xlsx"\
-output_dir \<- "path/to/output_folder"
+cd_file_path <- "path/to/compound_discoverer_export.xlsx"
+metadata_path <- "path/to/metadata.xlsx"
+output_dir <- "path/to/output_folder"
 ```
 
 ------------------------------------------------------------------------
