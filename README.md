@@ -72,13 +72,8 @@ stringi
 
 ## Configuration
 
-Copy:
-
-config/settings.example.R
-
-to:
-
-config/settings.R
+Copy: config/settings.example.R
+to: config/settings.R
 
 Then edit the file and set:
 
