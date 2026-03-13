@@ -77,21 +77,31 @@ stringi
 
 ## Configuration
 
-Copy: config/settings.example.R
+Copy the example configuration file:
+```
+config/settings.example.R
+```
 
-to: config/settings.R
+and rename it to:
+```
+config/settings.R
+```
 
 Then edit the file and set:
 
+```
 cd_file_path \<- "path/to/compound_discoverer_export.xlsx"\
 metadata_path \<- "path/to/metadata.xlsx"\
 output_dir \<- "path/to/output_folder"
+```
 
 ------------------------------------------------------------------------
 
 ## Running the Pipeline
 
+```
 source("run_pipeline.R")
+```
 
 ------------------------------------------------------------------------
 
