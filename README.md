@@ -110,11 +110,19 @@ Outputs are saved in the directory defined in `settings.R`.
 
 ------------------------------------------------------------------------
 
-<p align="center">
-  <img src="images/pca_example.png" width="30%">
-  <img src="images/volcano_example.png" width="30%">
-  <img src="images/heatmap_example.png" width="30%">
-</p>
+## Example Outputs
+
+### PCA
+
+![PCA](images/pca_example.png)
+
+### Volcano Plot
+
+![Volcano](images/volcano_example.png)
+
+### Heatmap
+
+![Heatmap](images/heatmap_example.png)
 
 ------------------------------------------------------------------------
 
