@@ -1,2 +1,96 @@
-# metabolomics-pipeline
-Modular R pipeline for untargeted LC–MS metabolomics analysis from Compound Discoverer exports, including normalization, filtering, PCA, statistical testing, volcano plots, heatmaps and MetaboAnalyst-ready outputs.
+# Metabolomics Pipeline
+
+Modular **R pipeline** for analysis of **untargeted LC--MS metabolomics
+data** exported from **Compound Discoverer**.
+
+The pipeline performs preprocessing, normalization, filtering,
+statistical analysis and visualization, generating reproducible outputs
+such as PCA plots, volcano plots, heatmaps and statistical tables.
+
+------------------------------------------------------------------------
+
+## Main Features
+
+-   Modular R architecture
+-   Support for **Compound Discoverer exports**
+-   Weight normalization
+-   Missing value filtering
+-   QC-based filtering
+-   PCA visualization
+-   Statistical testing
+-   Volcano plots
+-   Heatmaps
+-   Export of results for **MetaboAnalyst**
+-   Organized output structure
+
+------------------------------------------------------------------------
+
+## Project Structure
+
+metabolomics-pipeline/ │ ├── config/ │ └── settings.example.R │ ├──
+data/ │ ├── R/ │ ├── 00_packages.R │ ├── 01_validation.R │ ├──
+02_comparisons.R │ ├── 03_helpers_io_log.R │ ├── 04_metadata.R │ ├──
+05_features_assay.R │ ├── 06_normalization_filters.R │ ├──
+07_duplicates.R │ ├── 08_exports.R │ ├── 09_pca.R │ ├──
+10_stats_volcano.R │ ├── 11_heatmaps.R │ └── 12_main_pipeline.R │ ├──
+run_pipeline.R ├── .gitignore ├── LICENSE └── README.md
+
+------------------------------------------------------------------------
+
+## Requirements
+
+R version: **4.5.2**
+
+Required R packages:
+
+tidyverse\
+readxl\
+openxlsx\
+pheatmap\
+ggrepel\
+stringi
+
+------------------------------------------------------------------------
+
+## Configuration
+
+Copy:
+
+config/settings.example.R
+
+to:
+
+config/settings.R
+
+Then edit the file and set:
+
+cd_file_path \<- "path/to/compound_discoverer_export.xlsx"\
+metadata_path \<- "path/to/metadata.xlsx"\
+output_dir \<- "path/to/output_folder"
+
+------------------------------------------------------------------------
+
+## Running the Pipeline
+
+source("run_pipeline.R")
+
+------------------------------------------------------------------------
+
+## Output
+
+The pipeline generates:
+
+-   PCA plots
+-   Volcano plots
+-   Heatmaps
+-   Statistical tables
+-   MetaboAnalyst-ready datasets
+-   Log files
+
+Outputs are saved in the directory defined in `settings.R`.
+
+------------------------------------------------------------------------
+
+## License
+
+MIT License
