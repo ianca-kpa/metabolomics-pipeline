@@ -52,3 +52,63 @@ metabolomics-pipeline/
 ├── .gitignore
 ├── LICENSE
 └── README.md
+```
+------------------------------------------------------------------------
+
+## Requirements
+
+R version: **4.5.2**
+
+Required R packages:
+
+tidyverse\
+readxl\
+openxlsx\
+pheatmap\
+ggrepel\
+stringi
+
+------------------------------------------------------------------------
+
+## Configuration
+
+Copy:
+
+config/settings.example.R
+
+to:
+
+config/settings.R
+
+Then edit the file and set:
+
+cd_file_path \<- "path/to/compound_discoverer_export.xlsx"\
+metadata_path \<- "path/to/metadata.xlsx"\
+output_dir \<- "path/to/output_folder"
+
+------------------------------------------------------------------------
+
+## Running the Pipeline
+
+source("run_pipeline.R")
+
+------------------------------------------------------------------------
+
+## Output
+
+The pipeline generates:
+
+-   PCA plots
+-   Volcano plots
+-   Heatmaps
+-   Statistical tables
+-   MetaboAnalyst-ready datasets
+-   Log files
+
+Outputs are saved in the directory defined in `settings.R`.
+
+------------------------------------------------------------------------
+
+## License
+
+MIT License
