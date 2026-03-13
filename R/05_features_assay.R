@@ -25,6 +25,22 @@ get_rt_col <- function(df) {
   NA_character_
 }
 
+get_metabolika_col <- function(df) {
+  nms <- names(df)
+  nms_low <- tolower(nms)
+  
+  exact_idx <- which(nms_low == "metabolika pathways")
+  if (length(exact_idx) > 0) return(nms[exact_idx[1]])
+  
+  cand <- nms[
+    str_detect(nms_low, "metabolika") &
+      str_detect(nms_low, "pathway")
+  ]
+  if (length(cand) > 0) return(cand[1])
+  
+  NA_character_
+}
+
 build_feature_table <- function(cd_raw,
                                 sanitize_names_for_exports = TRUE,
                                 sanitize_mode = "greek_latin_ascii",
@@ -39,7 +55,7 @@ build_feature_table <- function(cd_raw,
   
   name_col <- if ("Name" %in% names(cd_raw)) "Name" else NA_character_
   formula_col <- if ("Formula" %in% names(cd_raw)) "Formula" else NA_character_
-  metabolika_col <- if ("Metabolika pathways" %in% names(cd_raw)) "Metabolika pathways" else NA_character_
+  metabolika_col <- get_metabolika_col(cd_raw)
   
   Name_clean <- if (!is.na(name_col)) clean_text(cd_raw[[name_col]]) else rep(NA_character_, nrow(cd_raw))
   Formula_clean <- if (!is.na(formula_col)) clean_text(cd_raw[[formula_col]]) else rep(NA_character_, nrow(cd_raw))
