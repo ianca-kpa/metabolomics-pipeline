@@ -72,7 +72,7 @@ openxlsx\
 pheatmap\
 ggrepel\
 stringi\
-RColorBrewer"
+RColorBrewer
 
 ------------------------------------------------------------------------
 
