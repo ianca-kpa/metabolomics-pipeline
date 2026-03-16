@@ -71,7 +71,10 @@ compute_ttest_stats_general <- function(mat_log2, mat_prelog, meta_sub, feat_inf
     var_equal[j] <- vt$var_equal
 
     ve <- if (isTRUE(vt$var_equal)) TRUE else FALSE
-    pvals[j] <- tryCatch(t.test(y, x, var.equal = ve)$p.value, error = function(e) NA_real_)
+    pvals[j] <- tryCatch(
+      t.test(y, x, var.equal = ve)$p.value,
+      error = function(e) NA_real_
+    )
   }
 
   fdr <- p.adjust(pvals, method = "BH")
@@ -86,133 +89,213 @@ compute_ttest_stats_general <- function(mat_log2, mat_prelog, meta_sub, feat_inf
     var_equal = as.logical(var_equal)
   ) %>%
     left_join(
-      feat_info %>% select(featureID, any_of(c(
-        "display_name",
-        "mz",
-        "RT",
-        "Name",
-        "Name_canon",
-        "Metabolika_pathways",
-        "Formula"
-      ))),
+      feat_info %>%
+        select(
+          featureID,
+          any_of(c(
+            "display_name", "mz", "RT", "Name", "Name_canon",
+            "Metabolika_pathways", "Formula"
+          ))
+        ),
       by = "featureID"
     )
 }
 
 plot_volcano_metric <- function(stats_df, title, out_path,
                                 metric = c("FDR", "p_value"),
-                                alpha = 0.05,
-                                fc_cutoff_log2 = 1,
+                                alpha = alpha_sig,
+                                fc_cutoff_log2 = fc_cutoff_log2,
                                 xlab = "log2FC") {
   metric <- match.arg(metric)
 
-  p_labels <- c("1.0", "0.1", "0.05", "0.01", "0.001")
-  size_vals <- c(1.9, 2.7, 3.5, 4.4, 5.4)
-  names(size_vals) <- p_labels
+  if (is.null(stats_df) || nrow(stats_df) == 0) {
+    stop("stats_df is NULL or empty.")
+  }
 
   df <- stats_df %>%
-    mutate(
+    dplyr::mutate(
       metric_val = .data[[metric]],
-      metric_plot = if_else(is.na(metric_val), NA_real_, pmax(metric_val, FLOOR_P)),
-      minus_log10_metric = if_else(is.na(metric_plot), NA_real_, -log10(metric_plot)),
-      label = if_else(!is.na(display_name), display_name, NA_character_),
-      p_bin = case_when(
-        is.na(metric_plot) ~ NA_character_,
-        metric_plot <= 0.001 ~ "0.001",
-        metric_plot <= 0.01 ~ "0.01",
-        metric_plot <= 0.05 ~ "0.05",
-        metric_plot <= 0.1 ~ "0.1",
-        TRUE ~ "1.0"
+      metric_plot = dplyr::if_else(
+        is.na(metric_val),
+        NA_real_,
+        pmax(metric_val, FLOOR_P)
       ),
-      p_bin = factor(p_bin, levels = p_labels)
+      minus_log10_metric = dplyr::if_else(
+        is.na(metric_plot),
+        NA_real_,
+        -log10(metric_plot)
+      ),
+      label = dplyr::case_when(
+        !is.na(display_name) & trimws(display_name) != "" ~ display_name,
+        !is.na(Name) & trimws(Name) != "" ~ Name,
+        TRUE ~ featureID
+      ),
+
+      # ---------------------------------------------------------
+      # STRICT LOGIC:
+      # Up/Down must respect BOTH significance and FC cutoff
+      # ---------------------------------------------------------
+      regulation = dplyr::case_when(
+        !is.na(metric_val) &
+          metric_val < alpha &
+          !is.na(log2FC_num_over_den) &
+          log2FC_num_over_den >= fc_cutoff_log2 ~ "Up",
+        !is.na(metric_val) &
+          metric_val < alpha &
+          !is.na(log2FC_num_over_den) &
+          log2FC_num_over_den <= -fc_cutoff_log2 ~ "Down",
+        TRUE ~ "Normal"
+      ),
+      regulation = factor(regulation, levels = c("Down", "Normal", "Up"))
     )
 
-  dummy <- tibble(
-    log2FC_num_over_den = rep(Inf, length(p_labels)),
-    minus_log10_metric = rep(Inf, length(p_labels)),
-    p_bin = factor(p_labels, levels = p_labels),
-    log2FC_fill_dummy = rep(0, length(p_labels))
+  # -------------------------------------------------------------
+  # Labels only for points that pass BOTH significance and FC cutoff
+  # -------------------------------------------------------------
+  df_labels <- df %>%
+    dplyr::filter(
+      !is.na(metric_val),
+      !is.na(log2FC_num_over_den),
+      metric_val < alpha,
+      abs(log2FC_num_over_den) >= fc_cutoff_log2
+    ) %>%
+    dplyr::arrange(metric_val, dplyr::desc(abs(log2FC_num_over_den)))
+
+  if (nrow(df_labels) > 15) {
+    df_labels <- df_labels %>% dplyr::slice_head(n = 15)
+  }
+
+  # -------------------------------------------------------------
+  # Axis limits
+  # -------------------------------------------------------------
+  x_vals <- df$log2FC_num_over_den[is.finite(df$log2FC_num_over_den)]
+  y_vals <- df$minus_log10_metric[is.finite(df$minus_log10_metric)]
+
+  max_abs_x <- if (length(x_vals) > 0) max(abs(x_vals), na.rm = TRUE) else 1
+  max_abs_x <- max(max_abs_x, fc_cutoff_log2, 0.5)
+  max_abs_x <- max_abs_x * 1.15
+
+  sig_y <- -log10(alpha)
+  max_y <- if (length(y_vals) > 0) max(y_vals, na.rm = TRUE) else 1
+  max_y <- max(max_y, sig_y, 1) * 1.10
+
+  # -------------------------------------------------------------
+  # Dummy points only for legend
+  # This forces Down / Normal / Up to always appear in legend
+  # -------------------------------------------------------------
+  legend_dummy <- tibble::tibble(
+    log2FC_num_over_den = c(-999, -999, -999),
+    minus_log10_metric = c(-999, -999, -999),
+    regulation = factor(c("Down", "Normal", "Up"),
+      levels = c("Down", "Normal", "Up")
+    )
   )
 
-  p <- ggplot() +
-    geom_point(
-      data = df,
-      aes(
-        x = log2FC_num_over_den,
-        y = minus_log10_metric,
-        fill = log2FC_num_over_den,
-        size = p_bin
-      ),
+  p <- ggplot2::ggplot(
+    df,
+    ggplot2::aes(
+      x = log2FC_num_over_den,
+      y = minus_log10_metric
+    )
+  ) +
+    ggplot2::geom_hline(
+      yintercept = sig_y,
+      linetype = "dashed",
+      linewidth = 0.5,
+      color = "black"
+    ) +
+    ggplot2::geom_vline(
+      xintercept = c(-fc_cutoff_log2, fc_cutoff_log2),
+      linetype = "dashed",
+      linewidth = 0.5,
+      color = "black"
+    ) +
+
+    # real points
+    ggplot2::geom_point(
+      ggplot2::aes(fill = regulation),
       shape = 21,
+      size = 3.0,
       color = "black",
       stroke = 0.25,
       alpha = 0.90,
       na.rm = TRUE
     ) +
-    geom_point(
-      data = dummy,
-      aes(
+
+    # dummy legend points
+    ggplot2::geom_point(
+      data = legend_dummy,
+      ggplot2::aes(
         x = log2FC_num_over_den,
         y = minus_log10_metric,
-        size = p_bin
+        fill = regulation
       ),
       shape = 21,
+      size = 3.0,
       color = "black",
-      fill = "grey85",
-      alpha = 0
-    ) +
-    scale_fill_gradient2(
-      low = "blue", mid = "white", high = "red", midpoint = 0,
-      name = "Log2(FC)"
-    ) +
-    scale_size_manual(
-      limits = p_labels,
-      breaks = p_labels,
-      labels = p_labels,
-      values = size_vals,
-      drop = FALSE,
-      name = if (metric == "FDR") "FDR" else "P-value"
-    ) +
-    geom_vline(
-      xintercept = c(-fc_cutoff_log2, fc_cutoff_log2),
-      linetype = "dashed"
-    ) +
-    geom_hline(
-      yintercept = -log10(alpha),
-      linetype = "dashed"
+      stroke = 0.25,
+      alpha = 0.90,
+      inherit.aes = FALSE,
+      show.legend = TRUE
     ) +
     ggrepel::geom_text_repel(
-      data = df,
-      aes(
-        x = log2FC_num_over_den,
-        y = minus_log10_metric,
-        label = if_else(
-          metric_val < alpha & abs(log2FC_num_over_den) >= fc_cutoff_log2,
-          label,
-          NA_character_
-        )
-      ),
-      size = 3,
-      max.overlaps = 10,
-      box.padding = 0.5,
+      data = df_labels,
+      ggplot2::aes(label = label),
+      size = 3.8,
+      box.padding = 0.35,
+      point.padding = 0.20,
+      segment.color = "grey40",
+      segment.size = 0.30,
+      max.overlaps = 100,
+      min.segment.length = 0,
       show.legend = FALSE
     ) +
-    labs(
+    ggplot2::scale_fill_manual(
+      values = c(
+        Down = "#3B82F6",
+        Normal = "grey75",
+        Up = "#EF4444"
+      ),
+      drop = FALSE,
+      name = "Regulation"
+    ) +
+    ggplot2::coord_cartesian(
+      xlim = c(-max_abs_x, max_abs_x),
+      ylim = c(0, max_y),
+      expand = TRUE
+    ) +
+    ggplot2::labs(
       title = title,
       x = xlab,
       y = paste0("-log10(", metric, ")")
     ) +
-    guides(
-      fill = guide_colorbar(order = 1),
-      size = guide_legend(
-        order = 2,
-        override.aes = list(alpha = 1, shape = 21, color = "black", fill = "grey85")
+    ggplot2::guides(
+      fill = ggplot2::guide_legend(
+        override.aes = list(shape = 21, size = 3.5, color = "black", alpha = 1)
       )
     ) +
-    theme_minimal()
+    ggplot2::theme_minimal(base_size = 14) +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(face = "bold", size = 16),
+      axis.title = ggplot2::element_text(face = "bold", size = 13),
+      legend.title = ggplot2::element_text(face = "bold"),
+      panel.grid.minor = ggplot2::element_blank(),
+      panel.background = ggplot2::element_rect(fill = "white", color = NA),
+      plot.background = ggplot2::element_rect(fill = "white", color = NA),
+      legend.background = ggplot2::element_rect(fill = "white", color = NA),
+      legend.key = ggplot2::element_rect(fill = "white", color = NA)
+    )
 
   dir.create(dirname(out_path), recursive = TRUE, showWarnings = FALSE)
-  ggsave(out_path, p, width = 10, height = 7, dpi = 300)
+
+  ggplot2::ggsave(
+    filename = out_path,
+    plot = p,
+    width = 10,
+    height = 7,
+    dpi = 300,
+    bg = "white"
+  )
 }
 
 save_placeholder_volcano <- function(out_path, title, reason) {
@@ -222,11 +305,20 @@ save_placeholder_volcano <- function(out_path, title, reason) {
     theme_void() +
     labs(title = title, subtitle = reason) +
     theme(
-      plot.title = element_text(size = 14, face = "bold"),
-      plot.subtitle = element_text(size = 12)
+      plot.title = element_text(size = 14, face = "bold", color = "black"),
+      plot.subtitle = element_text(size = 12, color = "black"),
+      plot.background = element_rect(fill = "white", color = NA),
+      panel.background = element_rect(fill = "white", color = NA)
     )
 
-  ggsave(out_path, p, width = 10, height = 7, dpi = 300)
+  ggsave(
+    filename = out_path,
+    plot = p,
+    width = 10,
+    height = 7,
+    dpi = 300,
+    bg = "white"
+  )
 }
 
 run_all_stats_5sets_per_model <- function(mat_log2, mat_prelog, metadata_aligned, feat_info, paths,
@@ -305,10 +397,13 @@ run_all_stats_5sets_per_model <- function(mat_log2, mat_prelog, metadata_aligned
               out_path = out_path,
               metric = met,
               alpha = alpha_sig,
-              fc_cutoff_log2 = fc_cutoff_log2
+              fc_cutoff = fc_cutoff_log2
             )
           },
           error = function(e) {
+            message("  - Volcano failed: ", out_path)
+            message("    Error: ", conditionMessage(e))
+
             save_placeholder_volcano(
               out_path = out_path,
               title = title,
@@ -321,71 +416,6 @@ run_all_stats_5sets_per_model <- function(mat_log2, mat_prelog, metadata_aligned
   }
 
   out
-}
-
-export_sig_metabolite_txt_from_stats <- function(df_clean, nm, out_dir, alpha_sig) {
-  enrich_dir <- file.path(out_dir, "enrichment_lists")
-  dir.create(enrich_dir, recursive = TRUE, showWarnings = FALSE)
-
-  out <- list(
-    pvalue_txt = NA_character_,
-    fdr_txt = NA_character_,
-    n_pvalue = 0L,
-    n_fdr = 0L
-  )
-
-  if (is.null(df_clean) || nrow(df_clean) == 0) {
-    return(invisible(out))
-  }
-
-  met_name <- if ("Name_canon" %in% names(df_clean)) df_clean$Name_canon else rep(NA_character_, nrow(df_clean))
-
-  if ("Name" %in% names(df_clean)) {
-    idx_missing <- is.na(met_name) | met_name == ""
-    met_name[idx_missing] <- df_clean$Name[idx_missing]
-  }
-
-  met_name <- trimws(as.character(met_name))
-  met_name[met_name == ""] <- NA_character_
-
-  df_export <- df_clean %>%
-    mutate(met_name = met_name)
-
-  sig_p <- df_export %>%
-    filter(!is.na(met_name), !is.na(p_value), p_value < alpha_sig) %>%
-    pull(met_name) %>%
-    unique()
-
-  out$n_pvalue <- length(sig_p)
-
-  if (length(sig_p) > 0) {
-    out$pvalue_txt <- file.path(enrich_dir, paste0(nm, "_sig_pvalue.txt"))
-    writeLines(sig_p, out$pvalue_txt, useBytes = TRUE)
-
-    message(
-      "  ✓ enrichment TXT created: ", basename(out$pvalue_txt),
-      " (", out$n_pvalue, " metabolites)"
-    )
-  }
-
-  sig_fdr <- df_export %>%
-    filter(!is.na(met_name), !is.na(FDR), FDR < alpha_sig) %>%
-    pull(met_name) %>%
-    unique()
-
-  out$n_fdr <- length(sig_fdr)
-
-  if (length(sig_fdr) > 0) {
-    out$fdr_txt <- file.path(enrich_dir, paste0(nm, "_sig_FDR.txt"))
-    writeLines(sig_fdr, out$fdr_txt, useBytes = TRUE)
-
-    message(
-      "  ✓ enrichment TXT created: ", basename(out$fdr_txt),
-      " (", out$n_fdr, " metabolites)"
-    )
-  }
-
-  invisible(out)
 }
 
 export_stats_excel_by_model <- function(stats_5sets_by_model, paths, alpha_sig, fc_cutoff_log2,
@@ -450,37 +480,6 @@ export_stats_excel_by_model <- function(stats_5sets_by_model, paths, alpha_sig, 
               abs(log2FC) >= fc_cutoff_log2
           )
         )
-
-      txt_info <- export_sig_metabolite_txt_from_stats(
-        df_clean = df_clean,
-        nm = nm,
-        out_dir = out_dir,
-        alpha_sig = alpha_sig
-      )
-
-      if (!is.null(log_path)) {
-        if (!is.na(txt_info$pvalue_txt)) {
-          append_log_line(
-            log_path,
-            paste0(
-              "- ", basename(txt_info$pvalue_txt),
-              " -> ", txt_info$n_pvalue,
-              " significant metabolite names by p_value | path: ", txt_info$pvalue_txt
-            )
-          )
-        }
-
-        if (!is.na(txt_info$fdr_txt)) {
-          append_log_line(
-            log_path,
-            paste0(
-              "- ", basename(txt_info$fdr_txt),
-              " -> ", txt_info$n_fdr,
-              " significant metabolite names by FDR | path: ", txt_info$fdr_txt
-            )
-          )
-        }
-      }
 
       openxlsx::writeData(wb, nm, df_clean)
       openxlsx::freezePane(wb, nm, firstRow = TRUE)
@@ -558,11 +557,11 @@ export_stats_excel_by_model <- function(stats_5sets_by_model, paths, alpha_sig, 
       visible_cols <- setdiff(seq_len(ncol(df_clean)), helper_cols)
 
       if (length(visible_cols) > 0) {
-        openxlsx::setColWidths(wb, nm, cols = visible_cols, widths = 18)
+        openxlsx::setColWidths(wb, nm, cols = visible_cols, widths = "auto")
       }
 
       if (length(helper_cols) > 0) {
-        openxlsx::setColWidths(wb, nm, cols = helper_cols, widths = 5)
+        openxlsx::setColWidths(wb, nm, cols = helper_cols, widths = 0)
       }
     }
 
@@ -579,5 +578,5 @@ export_stats_excel_by_model <- function(stats_5sets_by_model, paths, alpha_sig, 
     }
   }
 
-  message("  ✓ Stats Excel per model saved.")
+  message("  ✓ Stats Excel per model saved in: ", out_dir)
 }
