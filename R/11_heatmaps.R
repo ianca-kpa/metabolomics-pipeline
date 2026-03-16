@@ -8,7 +8,7 @@
 # Color palette
 # -----------------------------------------------------------------------------
 make_bwr_palette <- function(n = 101) {
-  grDevices::colorRampPalette(c("#2166AC", "#F7F7F7", "#B2182B"))(n)
+  grDevices::colorRampPalette(c("#1134e6", "#F7F7F7", "#ea112a"))(n)
 }
 
 make_heatmap_breaks <- function(n = 101, symmetric = TRUE, limit = 3, mat = NULL) {
