@@ -1,6 +1,6 @@
 # Metabolomics Pipeline
 
-Modular **R pipeline** for analysis of **untargeted LC–MS metabolomics data** exported from **Compound Discoverer**.
+Modular **R pipeline** for analysis of **untargeted LC–MS/MS metabolomics data** exported from **Compound Discoverer**.
 
 The pipeline performs preprocessing, normalization, filtering, statistical analysis and visualization, generating reproducible outputs such as PCA plots, volcano plots, heatmaps and statistical tables.
 
@@ -90,9 +90,9 @@ config/settings.R
 Then edit the file and set:
 
 ```
-cd_file_path \<- "path/to/compound_discoverer_export.xlsx"\
-metadata_path \<- "path/to/metadata.xlsx"\
-output_dir \<- "path/to/output_folder"
+cd_file_path <- "path/to/compound_discoverer_export.xlsx"
+metadata_path <- "path/to/metadata.xlsx"
+output_dir <- "path/to/output_folder"
 ```
 
 ------------------------------------------------------------------------
