@@ -412,8 +412,14 @@ run_untargeted_pipeline <- function() {
       # -------------------------------------------------------------------------
       t_step <- step_start(14, 15, "Preparing statistics-driven heatmaps")
 
+      heatmap_rank_metrics_cfg <- if (exists("heatmap_rank_metrics", inherits = TRUE)) {
+        heatmap_rank_metrics
+      } else {
+        run_metrics
+      }
+
       step_info("Top/significant heatmaps will be generated after statistics.")
-      step_info("Top heatmap metrics configured: ", paste(run_metrics, collapse = ", "))
+      step_info("Top heatmap metrics configured: ", paste(heatmap_rank_metrics_cfg, collapse = ", "))
       step_info("Significant heatmap metrics configured: ", paste(run_metrics, collapse = ", "))
       step_ok("Preparing statistics-driven heatmaps", t_step)
 
@@ -421,6 +427,22 @@ run_untargeted_pipeline <- function() {
       # STEP 15 — Generating statistics, volcano plots, stats Excel, and heatmaps
       # -------------------------------------------------------------------------
       t_step <- step_start(15, 15, "Generating statistics, volcano plots, stats Excel, and heatmaps")
+      metric_mode_resolver <- if (exists("normalize_metric_modes", mode = "function")) {
+        normalize_metric_modes
+      } else {
+        function(metrics) {
+          valid <- c("FDR", "p_value")
+          if (is.null(metrics) || length(metrics) == 0) return(valid)
+          expanded <- unlist(lapply(as.character(metrics), function(m) {
+            if (identical(m, "FDR_and_p_value")) c("FDR", "p_value") else m
+          }), use.names = FALSE)
+          expanded <- unique(expanded)
+          expanded <- expanded[expanded %in% valid]
+          if (length(expanded) == 0) valid else expanded
+        }
+      }
+      run_metrics_expanded <- metric_mode_resolver(run_metrics)
+      heatmap_rank_metrics_expanded <- metric_mode_resolver(heatmap_rank_metrics_cfg)
 
       # -----------------------------------------------------------------------
       # Top heatmaps by model
@@ -429,7 +451,7 @@ run_untargeted_pipeline <- function() {
         step_info("TOP heatmaps per model (loop rank metrics)...")
 
         suppressWarnings({
-          for (rk in heatmap_rank_metrics) {
+          for (rk in heatmap_rank_metrics_expanded) {
             plot_heatmap_top_ttest_per_model(
               mat_log2_base,
               metadata_aligned,
@@ -452,7 +474,7 @@ run_untargeted_pipeline <- function() {
         step_info("TOP heatmaps per model split by sex (loop rank metrics)...")
 
         suppressWarnings({
-          for (rk in heatmap_rank_metrics) {
+          for (rk in heatmap_rank_metrics_expanded) {
             plot_heatmap_top_ttest_per_model(
               mat_log2_base,
               metadata_aligned,
@@ -505,7 +527,7 @@ run_untargeted_pipeline <- function() {
       if (isTRUE(make_sig_heatmap_by_model)) {
         step_info("Significant heatmaps (ALL sex TG/WT) for BOTH metrics...")
 
-        for (met in run_metrics) {
+        for (met in run_metrics_expanded) {
           for (m in models) {
             mp <- get_model_paths(paths, m)
 
@@ -553,7 +575,7 @@ run_untargeted_pipeline <- function() {
       if (isTRUE(make_sig_heatmap_by_model_sex)) {
         step_info("Significant heatmaps (TG/WT) BY sex for BOTH metrics...")
 
-        for (met in run_metrics) {
+        for (met in run_metrics_expanded) {
           for (m in models) {
             mp <- get_model_paths(paths, m)
 
@@ -609,7 +631,7 @@ run_untargeted_pipeline <- function() {
       if (isTRUE(make_sig_heatmap_FvsM_within_group)) {
         step_info("Significant heatmaps (F vs M within TG and WT) for BOTH metrics...")
 
-        for (met in run_metrics) {
+        for (met in run_metrics_expanded) {
           for (m in models) {
             mp <- get_model_paths(paths, m)
 
@@ -687,9 +709,9 @@ run_untargeted_pipeline <- function() {
       }
 
       step_info("Volcano plots enabled: ", make_volcano_plots)
-      step_info("Volcano metrics: ", paste(run_metrics, collapse = ", "))
-      step_info("Top heatmaps metrics: ", paste(heatmap_rank_metrics, collapse = ", "))
-      step_info("Significant heatmaps metrics: ", paste(run_metrics, collapse = ", "))
+      step_info("Volcano metrics: ", paste(run_metrics_expanded, collapse = ", "))
+      step_info("Top heatmaps metrics: ", paste(heatmap_rank_metrics_expanded, collapse = ", "))
+      step_info("Significant heatmaps metrics: ", paste(run_metrics_expanded, collapse = ", "))
       step_info("Stats Excel export enabled: ", save_stats_excel_per_model)
       step_info("Top heatmaps by model enabled: ", make_heatmap_by_model)
       step_info("Top heatmaps by model and sex enabled: ", make_heatmap_by_model_sex)

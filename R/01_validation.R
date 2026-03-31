@@ -22,25 +22,20 @@ validate_settings <- function() {
       "keep_separate",
       "collapse_mean",
       "collapse_sum",
-      "collapse_best_qc_rsd"
-    )
-  )
+      "collapse_best_qc_rsd"))
 
   # ---------------------------------------------------------------------------
   # Name sanitation
   # ---------------------------------------------------------------------------
-  stopifnot(
-    sanitize_mode %in% c(
-      "greek_latin_ascii",
-      "ascii_translit"
-    )
-  )
+  stopifnot(sanitize_mode %in% c("greek_latin_ascii", "ascii_translit"))
 
   # ---------------------------------------------------------------------------
   # Metrics
   # ---------------------------------------------------------------------------
-  stopifnot(all(run_metrics %in% c("FDR", "p_value")))
-  stopifnot(all(heatmap_rank_metrics %in% c("FDR", "p_value")))
+  stopifnot(all(run_metrics %in% c("FDR", "p_value", "FDR_and_p_value")))
+  if (exists("heatmap_rank_metrics", inherits = TRUE)) {
+    stopifnot(all(heatmap_rank_metrics %in% c("FDR", "p_value", "FDR_and_p_value")))
+  }
 
   # ---------------------------------------------------------------------------
   # Heatmap
@@ -50,13 +45,7 @@ validate_settings <- function() {
   # ---------------------------------------------------------------------------
   # Volcano main style
   # ---------------------------------------------------------------------------
-  stopifnot(
-    volcano_style %in% c(
-      "classic",
-      "gradual",
-      "both"
-    )
-  )
+  stopifnot(volcano_style %in% c("classic", "gradual", "both"))
 
   # ---------------------------------------------------------------------------
   # Volcano classic legend

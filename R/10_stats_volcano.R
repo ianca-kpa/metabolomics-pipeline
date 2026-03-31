@@ -3,6 +3,14 @@
 # Statistics + volcano + Excel export
 # =============================================================================
 
+# Summary:
+  # This module contains functions for performing statistical tests (t-tests) between groups, 
+  # generating volcano plots, and exporting results to Excel. The main function run_all_stats_
+  # 5sets_per_model() computes statistics for predefined comparisons and creates volcano plots, 
+  # while export_stats_excel_by_model() saves the results in an Excel workbook with conditional formatting.
+
+# safe_var_equal_test(): A helper function that performs a variance equality test (F-test) between two groups, 
+# handling cases with insufficient data or non-finite values gracefully.
 safe_var_equal_test <- function(x, y) {
   x <- x[is.finite(x)]
   y <- y[is.finite(y)]
@@ -22,6 +30,35 @@ safe_var_equal_test <- function(x, y) {
 
 FLOOR_P <- 1e-300
 
+# normalize_metric_modes(): Normalizes the input for metrics to run, 
+# expanding "FDR_and_p_value" into its components and validating the selection.
+normalize_metric_modes <- function(metrics) {
+  valid <- c("FDR", "p_value")
+
+  if (is.null(metrics) || length(metrics) == 0) {
+    return(valid)
+  }
+
+  expanded <- unlist(lapply(as.character(metrics), function(m) {
+    if (identical(m, "FDR_and_p_value")) {
+      return(c("FDR", "p_value"))
+    }
+    m
+  }), use.names = FALSE)
+
+  expanded <- unique(expanded)
+  expanded <- expanded[expanded %in% valid]
+
+  if (length(expanded) == 0) {
+    stop("No valid metric selected. Use one of: FDR, p_value, FDR_and_p_value")
+  }
+
+  expanded
+}
+
+# compute_ttest_stats_general(): Computes fold changes, log2 fold changes, p-values, FDR, 
+# and variance equality for a specified comparison between groups in the metadata. 
+# It returns a data frame with these statistics along with feature information.
 compute_ttest_stats_general <- function(mat_log2, mat_prelog, meta_sub, feat_info,
                                         compare_var = c("group", "sex"),
                                         num_level, den_level) {
@@ -101,6 +138,7 @@ compute_ttest_stats_general <- function(mat_log2, mat_prelog, meta_sub, feat_inf
     )
 }
 
+# plot_volcano_metric(): Generates a volcano plot for a given metric (FDR or p-value) using ggplot2.
 plot_volcano_metric <- function(stats_df, title, out_path,
                                 metric = c("FDR", "p_value"),
                                 alpha = alpha_sig,
@@ -321,11 +359,15 @@ save_placeholder_volcano <- function(out_path, title, reason) {
   )
 }
 
+# run_all_stats_5sets_per_model(): For each model, computes statistics for predefined comparisons and 
+# creates volcano plots for specified metrics (FDR, p-value, FDR_and_p_value). 
+# It handles cases with insufficient samples gracefully by saving placeholder volcano plots with explanations.
 run_all_stats_5sets_per_model <- function(mat_log2, mat_prelog, metadata_aligned, feat_info, paths,
                                           alpha_sig = 0.05, fc_cutoff_log2 = 1,
-                                          run_metrics = c("FDR", "p_value"),
+                                          run_metrics = run_metrics,
                                           make_volcano_plots = TRUE,
                                           comparison_configs = COMPARISON_CONFIGS) {
+  metrics <- normalize_metric_modes(run_metrics)
   models <- sort(unique(metadata_aligned$model[metadata_aligned$type == "Sample"]))
   out <- list()
 
@@ -365,7 +407,7 @@ run_all_stats_5sets_per_model <- function(mat_log2, mat_prelog, metadata_aligned
 
       if (!isTRUE(make_volcano_plots)) next
 
-      for (met in run_metrics) {
+      for (met in metrics) {
         out_dir <- get_volcano_dir(cfg$prefix, mp)
 
         out_path <- file.path(
@@ -397,7 +439,7 @@ run_all_stats_5sets_per_model <- function(mat_log2, mat_prelog, metadata_aligned
               out_path = out_path,
               metric = met,
               alpha = alpha_sig,
-              fc_cutoff = fc_cutoff_log2
+              fc_cutoff_log2 = fc_cutoff_log2
             )
           },
           error = function(e) {
@@ -418,6 +460,8 @@ run_all_stats_5sets_per_model <- function(mat_log2, mat_prelog, metadata_aligned
   out
 }
 
+# export_stats_excel_by_model(): Saves the computed statistics for each model in an Excel workbook 
+# with conditional formatting to highlight significant results.
 export_stats_excel_by_model <- function(stats_5sets_by_model, paths, alpha_sig, fc_cutoff_log2,
                                         active_variant, log_path = NULL) {
   comparisons <- COMPARISON_NAMES

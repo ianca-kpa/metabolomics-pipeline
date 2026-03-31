@@ -10,6 +10,7 @@ append_log_line <- function(log_path, line) {
   write(line, file = log_path, append = TRUE)
 }
 
+# Format dimensions of a data frame, matrix, or vector for logging
 fmt_dims <- function(x) {
   if (is.null(x)) return("rows=NA cols=NA")
   if (is.data.frame(x)) return(paste0("rows=", nrow(x), " cols=", ncol(x)))
@@ -22,6 +23,7 @@ fmt_dims <- function(x) {
   )
 }
 
+# Log a message about a written object, including its dimensions and file path
 log_written_object <- function(log_path, file_path, object, note = NULL) {
   msg <- paste0("- ", basename(file_path), " -> ", fmt_dims(object), " | path: ", file_path)
   
@@ -32,11 +34,11 @@ log_written_object <- function(log_path, file_path, object, note = NULL) {
   append_log_line(log_path, msg)
 }
 
+# Run an expression while capturing all console output (messages, warnings, errors) to a log file
 with_console_capture_to_file <- function(log_path, expr) {
   con <- file(log_path, open = "a", encoding = "UTF-8")
   
   on.exit({
-    try(sink(type = "message"), silent = TRUE)
     while (sink.number() > 0) {
       try(sink(), silent = TRUE)
     }
@@ -44,18 +46,22 @@ with_console_capture_to_file <- function(log_path, expr) {
   }, add = TRUE)
   
   sink(con, append = TRUE, split = TRUE)
-  sink(con, append = TRUE, type = "message")
   
   tryCatch(
     withCallingHandlers(
       expr,
+      message = function(m) {
+        # Emit messages through stdout so sink(split=TRUE) mirrors to console + log once.
+        cat(conditionMessage(m), "\n", sep = "")
+        invokeRestart("muffleMessage")
+      },
       warning = function(w) {
-        writeLines(paste0("[WARNING] ", conditionMessage(w)), con = con, sep = "\n")
+        cat("[WARNING] ", conditionMessage(w), "\n", sep = "")
         invokeRestart("muffleWarning")
       }
     ),
     error = function(e) {
-      writeLines(paste0("[ERROR] ", conditionMessage(e)), con = con, sep = "\n")
+      cat("[ERROR] ", conditionMessage(e), "\n", sep = "")
       stop(e)
     }
   )
@@ -166,6 +172,7 @@ normalize_model_names <- function(x) {
   x
 }
 
+# Extract unique model names from metadata, ensuring they are cleaned and valid
 get_models_from_metadata <- function(metadata_clean) {
   if (is.null(metadata_clean) || nrow(metadata_clean) == 0) {
     stop("metadata_clean is empty.")
@@ -193,6 +200,7 @@ get_models_from_metadata <- function(metadata_clean) {
   models
 }
 
+# Create a structured list of paths for a given model
 make_one_model_paths <- function(output_dir, model_name) {
   model_root <- file.path(output_dir, model_name)
   
@@ -219,6 +227,7 @@ make_one_model_paths <- function(output_dir, model_name) {
   )
 }
 
+# Create model directories if they don't exist
 create_model_dirs <- function(mp) {
   # Deliberately create only the model root here.
   # Subfolders are created on demand when a file is actually written.
@@ -300,7 +309,8 @@ get_model_paths <- function(paths, model_name) {
   )
 }
 
-remove_empty_directories <- function(root_dir) {
+# Remove empty directories under a given root directory (non-recursive, only immediate subdirectories)
+remove_empty_directories <- function(root_dir) {  
   if (!dir.exists(root_dir)) return(invisible(FALSE))
   
   all_dirs <- list.dirs(root_dir, recursive = TRUE, full.names = TRUE)
@@ -313,7 +323,7 @@ remove_empty_directories <- function(root_dir) {
       try(unlink(d, recursive = FALSE, force = TRUE), silent = TRUE)
     }
   }
-  
+
   invisible(TRUE)
 }
 

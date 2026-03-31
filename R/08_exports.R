@@ -3,10 +3,14 @@
 # Export helpers (MetaboAnalyst)
 # =============================================================================
 
+# This module contains helper functions for exporting data in formats suitable for MetaboAnalyst, as specified in the export settings in config/settings.R.
+
+# log2_transform(): Applies log2 transformation to the assay matrix with a specified offset to avoid log(0) issues.
 log2_transform <- function(mat, offset) {
   log2(mat + offset)
 }
 
+# Rename feature columns in a data frame based on the feature_tbl mapping, while ensuring unique column names.
 rename_feature_cols <- function(df, feature_tbl, sample_col = "sample") {
   map_vec <- feature_tbl$display_name
   names(map_vec) <- feature_tbl$featureID
@@ -23,12 +27,17 @@ rename_feature_cols <- function(df, feature_tbl, sample_col = "sample") {
   out
 }
 
+# This function creates two CSV files for a given model:
+  # 1. One with only Sample type (no QC), named "MA_ACTIVE_log2_NO_QC_model_<model_name>.csv"
+  # 2. One with both Sample and QC types, named "MA_ACTIVE_log2_WITH_QC_model_<model_name>.csv"
+
 export_metaboanalyst_one_model <- function(log2_df,
                                            metadata_aligned,
                                            feature_tbl,
                                            model_name,
                                            export_dir,
                                            log_path = NULL) {
+  
   df_named <- rename_feature_cols(log2_df, feature_tbl, sample_col = "sample")
 
   df <- df_named %>%
@@ -40,6 +49,7 @@ export_metaboanalyst_one_model <- function(log2_df,
       Class = dplyr::if_else(type == "QC", "QC", as.character(group))
     )
 
+  # Create export directory if it doesn't exist
   dir.create(export_dir, recursive = TRUE, showWarnings = FALSE)
 
   df_no_qc <- df %>%
@@ -63,6 +73,7 @@ export_metaboanalyst_one_model <- function(log2_df,
     dplyr::filter(model == model_name | type == "QC") %>%
     dplyr::select(sample, Class, dplyr::everything(), -type, -group, -model)
 
+  # With QC samples, but only if there are at least 2 rows (MetaboAnalyst requires at least 2 samples).
   out_with_qc <- file.path(export_dir, paste0("MA_ACTIVE_log2_WITH_QC_model_", model_name, ".csv"))
   if (nrow(df_with_qc) >= 2) {
     write_csv_safe(df_with_qc, out_with_qc)

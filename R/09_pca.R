@@ -3,6 +3,12 @@
 # PCA functions
 # =============================================================================
 
+# Summary:
+  # This module contains functions for performing PCA on the log2-transformed assay matrix, with different
+  # scaling options (none, pareto, autoscale) as specified in the settings. It includes a main driver function 
+  # that generates PCA plots for each model and subsets of samples, and saves them to the appropriate output directories.
+
+# scale_uv(): Autoscaling (unit variance scaling) - centers to mean and scales to unit variance.
 scale_uv <- function(mat) {
   out <- scale(mat, center = TRUE, scale = TRUE)
   out <- as.matrix(out)
@@ -10,6 +16,7 @@ scale_uv <- function(mat) {
   out
 }
 
+# scale_pareto(): Pareto scaling - centers to mean and scales to square root of standard deviation.
 scale_pareto <- function(mat) {
   mu <- colMeans(mat, na.rm = TRUE)
   sdv <- apply(mat, 2, stats::sd, na.rm = TRUE)
@@ -22,6 +29,8 @@ scale_pareto <- function(mat) {
   out
 }
 
+# apply_pca_scaling(): Apply the specified scaling method to the matrix before PCA, 
+# and return both the scaled matrix and a label for the method used.
 apply_pca_scaling <- function(mat, method = c("pareto", "autoscale", "none")) {
   method <- match.arg(method)
 
@@ -65,11 +74,11 @@ prepare_matrix_for_pca <- function(mat) {
 # -----------------------------------------------------------------------------
 # Draw and save one PCA plot
 # -----------------------------------------------------------------------------
-plot_one_pca_subset <- function(mat_log2,
-                                meta,
-                                out_png,
-                                title_main,
-                                pca_scaling = "pareto",
+plot_one_pca_subset <- function(mat_log2 = mat_log2,
+                                meta = meta,
+                                out_png = out_png,
+                                title_main = title_main,
+                                pca_scaling = pca_scaling,
                                 color_var = "group",
                                 shape_var = "sex",
                                 log_path = NULL) {
@@ -162,9 +171,9 @@ plot_one_pca_subset <- function(mat_log2,
 
   if (!is.null(log_path)) {
     log_written_object(
-      log_path,
-      out_png,
-      scores,
+      log_path = log_path,
+      out_png = out_png,
+      scores = scores,
       note = paste0(
         "PCA plot | title=", title_main,
         " | scaling=", sc$label,
@@ -186,12 +195,17 @@ plot_one_pca_subset <- function(mat_log2,
 # - one PCA per model restricted to F
 # - one PCA per model restricted to M
 # -----------------------------------------------------------------------------
-plot_pca_per_model <- function(mat_log2,
-                               metadata_aligned,
-                               paths,
-                               pca_scaling = "pareto",
+plot_pca_per_model <- function(mat_log2 = mat_log2,
+                               metadata_aligned = metadata_aligned,
+                               paths = paths,
+                               pca_scaling = pca_scaling,
                                log_path = NULL) {
-  models <- sort(unique(metadata_aligned$model[metadata_aligned$type == "Sample"]))
+  
+  models <- metadata_aligned %>%
+    dplyr::filter(type == "Sample") %>%
+    dplyr::pull(model) %>%
+    unique() %>%
+    sort()
   n_done <- 0
 
   for (m in models) {
