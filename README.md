@@ -71,7 +71,8 @@ readxl\
 openxlsx\
 pheatmap\
 ggrepel\
-stringi
+stringi\
+RColorBrewer
 
 ------------------------------------------------------------------------
 
