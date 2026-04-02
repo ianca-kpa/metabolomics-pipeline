@@ -13,6 +13,9 @@ cd_sheet <- 1 # options: sheet index or sheet name
 metadata_path <- "data/metadata_example.xlsx"
 metadata_sheet <- 1 # options: sheet index or sheet name
 
+comparison_path <- "data/comparison_example.xlsx"
+comparison_sheet <- 1 # options: sheet index or sheet name
+
 # Output directory (root)
 output_dir <- "output"
 
@@ -45,7 +48,7 @@ fc_cutoff_log2 <- 0                           # options: numeric >= 0 (log2 fold
 use_only_known <- TRUE                        # options: TRUE/FALSE
 
 # Duplicate metabolite handling
-duplicate_name_strategy <- "collapse_best_qc_rsd"  # options: "keep_separate"; "collapse_mean"; "collapse_sum"; "collapse_best_qc_rsd"
+duplicate_name_strategy <- "collapse_best_qc_rsd"  # options: "reference_or_best_qc_rsd"; "keep_separate"; "collapse_mean"; "collapse_sum"; "collapse_best_qc_rsd"
 
 # Duplicate rounding
 dup_mz_digits <- 4                            # options: integer >= 0 (number of decimal places to round m/z values to when determining duplicates)

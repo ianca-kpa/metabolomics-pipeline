@@ -35,6 +35,17 @@ run_untargeted_pipeline <- function() {
     # message("Step 3: Reading input files...")
     cd_raw <- read_any_table(cd_file_path, cd_sheet)
     metadata <- read_any_table(metadata_path, metadata_sheet)
+    reference_tbl <- NULL
+
+    if (exists("comparison_path", inherits = TRUE) &&
+        !is.null(comparison_path) &&
+        nzchar(as.character(comparison_path))) {
+      comparison_sheet_local <- if (exists("comparison_sheet", inherits = TRUE)) comparison_sheet else 1
+      reference_tbl <- read_any_table(comparison_path, comparison_sheet_local)
+      step_info("Reference table: rows=", nrow(reference_tbl), " cols=", ncol(reference_tbl))
+    } else {
+      step_info("Reference table: not provided (comparison_path empty)")
+    }
 
     step_info("Compound Discoverer table: rows=", nrow(cd_raw), " cols=", ncol(cd_raw))
     step_info("Metadata table: rows=", nrow(metadata), " cols=", ncol(metadata))
@@ -80,7 +91,7 @@ run_untargeted_pipeline <- function() {
 
     out_feat_map <- file.path(paths$global$exports, "02_featureID_to_display_name_map.csv")
     write_csv_safe(
-      feature_tbl %>% select(featureID, display_name, Name, Name_canon, Formula, mz, RT),
+      feature_tbl %>% select(featureID, display_name, Name, Name_canon, dplyr::any_of("Ref ion"), Formula, mz, RT),
       out_feat_map
     )
     log_written_object(log_path, out_feat_map, feature_tbl, note = "feature table")
@@ -344,6 +355,8 @@ run_untargeted_pipeline <- function() {
       mat = variants$ACTIVE$mat,
       feature_tbl = variants$ACTIVE$feature,
       strategy = duplicate_name_strategy,
+      reference_tbl = reference_tbl,
+      sanitize_mode = sanitize_mode,
       qc_rsd = qc_rsd_active,
       audit_path = file.path(
         paths$global$audits,
@@ -353,6 +366,65 @@ run_untargeted_pipeline <- function() {
 
     variants$ACTIVE$mat <- dup_out$mat
     variants$ACTIVE$feature <- dup_out$feature
+
+    if (duplicate_name_strategy == "reference_or_best_qc_rsd" &&
+        all(c("reference_has_metabolite", "reference_option_count", "full_match_option_count", "selection_source") %in% names(dup_out$audit))) {
+      dup_ref_summary <- dup_out$audit %>%
+        dplyr::filter(is_named, n_in_group > 1) %>%
+        dplyr::distinct(
+          dup_key,
+          reference_has_metabolite,
+          reference_option_count,
+          full_match_option_count,
+          selection_source
+        )
+
+      out_dup_ref_summary <- file.path(
+        paths$global$audits,
+        "duplicate_name_reference_summary_reference_or_best_qc_rsd.csv"
+      )
+      write_csv_safe(dup_ref_summary, out_dup_ref_summary)
+      log_written_object(
+        log_path,
+        out_dup_ref_summary,
+        dup_ref_summary,
+        note = "duplicate reference summary"
+      )
+
+      n_dup_groups <- nrow(dup_ref_summary)
+      n_in_reference <- sum(dup_ref_summary$reference_has_metabolite, na.rm = TRUE)
+      n_not_in_reference <- n_dup_groups - n_in_reference
+
+      step_info(
+        "Reference check (duplicate metabolites): groups=",
+        n_dup_groups,
+        " | in list=",
+        n_in_reference,
+        " | not in list=",
+        n_not_in_reference
+      )
+
+      if (n_dup_groups > 0) {
+        ref_opts <- dup_ref_summary$reference_option_count
+        match_opts <- dup_ref_summary$full_match_option_count
+
+        step_info(
+          "Reference options per metabolite (min/median/max): ",
+          paste0(min(ref_opts), "/", round(stats::median(ref_opts), 1), "/", max(ref_opts))
+        )
+
+        step_info(
+          "Full-match options per metabolite (min/median/max): ",
+          paste0(min(match_opts), "/", round(stats::median(match_opts), 1), "/", max(match_opts))
+        )
+
+        src_counts <- table(dup_ref_summary$selection_source, useNA = "ifany")
+        step_info(
+          "Selection source counts: ",
+          paste0(names(src_counts), "=", as.integer(src_counts), collapse = ", ")
+        )
+      }
+    }
 
     step_info("ACTIVE variant selected: ", active_variant)
     step_info("Final ACTIVE matrix: ", fmt_dims(variants$ACTIVE$mat))

@@ -41,6 +41,20 @@ get_metabolika_col <- function(df) {
   NA_character_
 }
 
+get_ref_ion_col <- function(df) {
+  nms <- names(df)
+  nms_low <- tolower(nms)
+
+  exact <- c("ref ion", "reference ion", "ref_ion", "reference_ion")
+  exact_idx <- which(nms_low %in% exact)
+  if (length(exact_idx) > 0) return(nms[exact_idx[1]])
+
+  cand <- nms[str_detect(nms_low, "ref\\s*ion|reference\\s*ion")]
+  if (length(cand) > 0) return(cand[1])
+
+  NA_character_
+}
+
 build_feature_table <- function(cd_raw,
                                 sanitize_names_for_exports = TRUE,
                                 sanitize_mode = "greek_latin_ascii",
@@ -56,10 +70,12 @@ build_feature_table <- function(cd_raw,
   name_col <- if ("Name" %in% names(cd_raw)) "Name" else NA_character_
   formula_col <- if ("Formula" %in% names(cd_raw)) "Formula" else NA_character_
   metabolika_col <- get_metabolika_col(cd_raw)
+  ref_ion_col <- get_ref_ion_col(cd_raw)
   
   Name_clean <- if (!is.na(name_col)) clean_text(cd_raw[[name_col]]) else rep(NA_character_, nrow(cd_raw))
   Formula_clean <- if (!is.na(formula_col)) clean_text(cd_raw[[formula_col]]) else rep(NA_character_, nrow(cd_raw))
   Metabolika_clean <- if (!is.na(metabolika_col)) clean_text(cd_raw[[metabolika_col]]) else rep(NA_character_, nrow(cd_raw))
+  Ref_ion_clean <- if (!is.na(ref_ion_col)) clean_text(cd_raw[[ref_ion_col]]) else rep(NA_character_, nrow(cd_raw))
   
   Formula_clean <- str_replace_all(Formula_clean, "\\s+", "")
   Name_canon <- strip_v_suffix_end(Name_clean)
@@ -80,6 +96,7 @@ build_feature_table <- function(cd_raw,
   feature_tbl <- tibble(
     Name = Name_clean,
     Name_canon = Name_canon,
+    `Ref ion` = Ref_ion_clean,
     Formula = Formula_clean,
     Metabolika_pathways = Metabolika_clean,
     mz = mz_num,
@@ -100,6 +117,7 @@ build_feature_table <- function(cd_raw,
       mutate(
         Name = sanitize_text_for_exports(Name, mode = sanitize_mode),
         Name_canon = sanitize_text_for_exports(Name_canon, mode = sanitize_mode),
+        `Ref ion` = sanitize_text_for_exports(`Ref ion`, mode = sanitize_mode),
         Formula = sanitize_text_for_exports(Formula, mode = sanitize_mode),
         Metabolika_pathways = sanitize_text_for_exports(Metabolika_pathways, mode = sanitize_mode),
         display_name = sanitize_text_for_exports(display_name, mode = sanitize_mode)

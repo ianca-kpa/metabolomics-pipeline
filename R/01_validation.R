@@ -19,6 +19,7 @@ validate_settings <- function() {
   # ---------------------------------------------------------------------------
   stopifnot(
     duplicate_name_strategy %in% c(
+      "reference_or_best_qc_rsd",
       "keep_separate",
       "collapse_mean",
       "collapse_sum",
