@@ -63,6 +63,7 @@ metabolomics-pipeline/
 ## Requirements
 
 R version: **4.5.2**
+https://cran.r-project.org/bin/windows/base/old/4.5.2/R-4.5.2-win.exe
 
 Required R packages:
 
